@@ -25,8 +25,6 @@ millis = int(round(time.time() * 1000))
 print(mse(reference_img, distorted_img))
 print(int(round(time.time() * 1000)) - millis)
 
-
-
 millis = int(round(time.time() * 1000))
 print(ssim(reference_img, distorted_img, multichannel=True))
 print(int(round(time.time() * 1000)) - millis)
