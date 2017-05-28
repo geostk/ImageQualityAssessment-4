@@ -13,7 +13,7 @@ while True:
             capture = cv2.VideoCapture('udp://@233.12.166.100:1234')
         else:
             cv2.imshow('frame', frame)
-            #next_frame = False
+            # next_frame = False
             score = brisque_score(frame)
 
             test_data = open("test_data", "w")
