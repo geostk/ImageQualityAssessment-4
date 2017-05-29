@@ -10,7 +10,7 @@ from resources.SNMPWrapper import transportDispatcher
 # Protocol version to use
 pMod = api.protoModules[api.protoVersion1]
 # pMod = api.protoModules[api.protoVersion2c]
-
+print("ehhehe")
 
 # Build PDU
 trapPDU = pMod.TrapPDU()
