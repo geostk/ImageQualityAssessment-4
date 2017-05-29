@@ -28,7 +28,7 @@ AND THE UNIVERSITY OF TEXAS AT AUSTIN HAS NO OBLIGATION TO PROVIDE MAINTENANCE, 
 import numpy
 import cv2
 from scipy import signal
-from ShiftEnum import shifts as shift
+from ShiftEnum import shift
 from scipy.special import gamma
 from scipy.misc import imresize
 
@@ -63,12 +63,11 @@ def brisque_feature(image):
     for i in range(0, 2):
         mu = signal.convolve2d(image, window, mode='same')
         mu_sq = numpy.multiply(mu, mu)
-        sigma = numpy.sqrt(
-            numpy.abs(signal.convolve2d(numpy.multiply(image, image), window, mode='same') - mu_sq))
-        structdis = numpy.divide((image - mu), (sigma + 1))
-        (alpha, overall_std) = estimate_ggd_param(structdis.flatten('F'))
+        sigma = numpy.sqrt(numpy.abs(signal.convolve2d(numpy.multiply(image, image), window, mode='same') - mu_sq))
+        structural_distribution = numpy.divide((image - mu), (sigma + 1))
+        (alpha, overall_std) = estimate_ggd_param(structural_distribution.flatten('F'))
         feat += (alpha, overall_std ** 2)
-        feat = circular_shift(structdis, feat)
+        feat = circular_shift(structural_distribution, feat)
         image = imresize(image, 0.5, interp='cubic', mode='F')
     return feat
 
@@ -84,32 +83,33 @@ def estimate_ggd_param(vector):
     return gam[index], numpy.sqrt(sigma_sq)
 
 
-def estimate_aggd_param(vector):
+def estimate_asym_ggd_param(vector):
     gam = numpy.arange(0.2, 10.001, 0.001)
     r_gam = numpy.divide(numpy.power(gamma(numpy.divide(2, gam)), 2),
                          numpy.multiply(gamma(numpy.divide(1, gam)), gamma(numpy.divide(3, gam))))
     left_std = numpy.sqrt(numpy.mean(numpy.power(vector[numpy.where(vector < 0)], 2)))
     right_std = numpy.sqrt(numpy.mean(numpy.power(vector[numpy.where(vector > 0)], 2)))
-    gammahat = left_std / right_std
-    rhat = numpy.mean(numpy.abs(vector)) ** 2 / numpy.mean(numpy.power(vector, 2))
-    rhatnorm = (rhat * (gammahat ** 3 + 1) * (gammahat + 1)) / ((gammahat ** 2 + 1) ** 2)
-    index = numpy.argmin(numpy.power(r_gam - rhatnorm, 2))
+    gamma_hat = left_std / right_std
+    r_hat = numpy.mean(numpy.abs(vector)) ** 2 / numpy.mean(numpy.power(vector, 2))
+    r_hat_norm = (r_hat * (gamma_hat ** 3 + 1) * (gamma_hat + 1)) / ((gamma_hat ** 2 + 1) ** 2)
+    index = numpy.argmin(numpy.power(r_gam - r_hat_norm, 2))
     return gam[index], left_std, right_std
 
 
-def circular_shift(structdis, feat):
+def circular_shift(structural_distribution, feat):
     shifts = [[shift.right],
               [shift.down],
               [shift.right, shift.down],
               [shift.right, shift.up]]
-    shifted_structdis = structdis
+    shifted_structural_distribution = structural_distribution
     for i in range(0, len(shifts)):
         for j in range(0, len(shifts[i])):
-            shifted_structdis = numpy.roll(shifted_structdis if j == 1 else structdis, shifts[i][j].value[0],
-                                           shifts[i][j].value[1])
-        pair = numpy.multiply(structdis.flatten('F'), shifted_structdis.flatten('F'))
-        (alpha, leftstd, rightstd) = estimate_aggd_param(pair)
+            shifted_structural_distribution = numpy.roll(
+                shifted_structural_distribution if j == 1 else structural_distribution, shifts[i][j].value[0],
+                shifts[i][j].value[1])
+        pair = numpy.multiply(structural_distribution.flatten('F'), shifted_structural_distribution.flatten('F'))
+        (alpha, left_std, right_std) = estimate_asym_ggd_param(pair)
         const = numpy.sqrt(gamma(1 / alpha)) / numpy.sqrt(gamma(3 / alpha))
-        meanparam = (rightstd - leftstd) * (gamma(2 / alpha) / gamma(1 / alpha)) * const
-        feat += (alpha, meanparam, leftstd ** 2, rightstd ** 2)
+        mean_param = (right_std - left_std) * (gamma(2 / alpha) / gamma(1 / alpha)) * const
+        feat += (alpha, mean_param, left_std ** 2, right_std ** 2)
     return feat
